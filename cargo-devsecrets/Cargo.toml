@@ -1,0 +1,12 @@
+[package]
+name = "cargo-devsecrets"
+version = "0.1.0"
+authors = ["Brian Chin <brian.chin@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+devsecrets = { path = ".." }
+clap = { version = "2.33.0", features = ["wrap_help"] }
+anyhow = "1.0.26"
