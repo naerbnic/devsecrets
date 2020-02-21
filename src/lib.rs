@@ -7,11 +7,9 @@ use uuid::Uuid;
 const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-fn devsecrets_config_root_dir() -> PathBuf {
-    let xdg_basedirs = xdg::BaseDirectories::new().expect("Can obtain valid config directories");
-    xdg_basedirs
-        .create_config_directory("rust-devsecrets")
-        .expect("Could not create the root config directory")
+fn devsecrets_config_root_dir() -> anyhow::Result<PathBuf> {
+    let xdg_basedirs = xdg::BaseDirectories::new()?;
+    Ok(xdg_basedirs.create_config_directory("rust-devsecrets")?)
 }
 
 fn read_file_or_create(
@@ -43,7 +41,7 @@ pub fn init_devsecrets_dir_from_manifest_dir(
             .to_string()
     })?;
 
-    let root_dir = devsecrets_config_root_dir();
+    let root_dir = devsecrets_config_root_dir()?;
     let config_dir_path = root_dir.join(&uuid_text);
     std::fs::create_dir_all(&config_dir_path)?;
     Ok(config_dir_path)
@@ -60,7 +58,7 @@ pub fn get_devsecrets_dir_from_manifest_dir(
     ))?;
     // We parse but don't keep the value to validate it's a UUID
     Uuid::parse_str(&uuid_text)?;
-    let config_dir_path = devsecrets_config_root_dir().join(&uuid_text);
+    let config_dir_path = devsecrets_config_root_dir()?.join(&uuid_text);
     let config_dir_metadata = std::fs::metadata(&config_dir_path)?;
     if !config_dir_metadata.is_dir() {
         anyhow::bail!("Config root dir must be a directory.")
@@ -70,7 +68,7 @@ pub fn get_devsecrets_dir_from_manifest_dir(
 
 pub fn get_devsecrets_dir() -> anyhow::Result<PathBuf> {
     let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be defined.");
+        std::env::var("CARGO_MANIFEST_DIR").context("CARGO_MANIFEST_DIR must be defined")?;
     get_devsecrets_dir_from_manifest_dir(&manifest_dir)
 }
 

@@ -10,3 +10,5 @@ edition = "2018"
 devsecrets = { path = ".." }
 clap = { version = "2.33.0", features = ["wrap_help"] }
 anyhow = "1.0.26"
+log = "0.4.8"
+env_logger = "0.7.1"

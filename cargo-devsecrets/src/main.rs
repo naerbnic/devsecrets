@@ -1,4 +1,5 @@
 use clap::{App, AppSettings, Arg, SubCommand};
+use log::info;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -31,6 +32,7 @@ fn find_crate_root_from_wd() -> anyhow::Result<PathBuf> {
 }
 
 fn main() {
+    env_logger::init();
     let matches = App::new("cargo devsecrets")
         .bin_name("cargo devsecrets")
         .author(clap::crate_authors!())
@@ -51,7 +53,9 @@ fn main() {
             SubCommand::with_name("init")
                 .about("Initializes a devsecret directory for the current crate"),
         )
-        .subcommand(SubCommand::with_name("path").about("Prints the devsecret path to stdout"))
+        .subcommand(
+            SubCommand::with_name("path").about("Prints the devsecret config path to stdout"),
+        )
         .get_matches();
 
     let crate_path = match matches.value_of_os("crate_path") {
@@ -62,18 +66,17 @@ fn main() {
         None => find_crate_root_from_wd().expect("Problem finding crate root."),
     };
 
-    println!("Crate path: {:?}", crate_path);
+    info!("Found path: {:?}", crate_path);
 
-    if let Some(matches) = matches.subcommand_matches("init") {
+    if let Some(_) = matches.subcommand_matches("init") {
         match devsecrets::init_devsecrets_dir_from_manifest_dir(&crate_path) {
             Ok(dir) => println!("Dir: {}", dir.to_str().unwrap()),
             Err(e) => println!("Unable to init directory: {}", e),
         }
-    } else if let Some(matches) = matches.subcommand_matches("path") {
+    } else if let Some(_) = matches.subcommand_matches("path") {
         match devsecrets::get_devsecrets_dir_from_manifest_dir(&crate_path) {
             Ok(dir) => println!("{}", dir.to_str().unwrap()),
             Err(e) => println!("Unable to find devsecrets directory: {:#}", e),
         }
-        
     }
 }
