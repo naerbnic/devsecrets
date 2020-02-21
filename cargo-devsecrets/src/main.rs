@@ -65,10 +65,15 @@ fn main() {
     println!("Crate path: {:?}", crate_path);
 
     if let Some(matches) = matches.subcommand_matches("init") {
-        let dir = devsecrets::init_devsecrets_dir_from_manifest_dir(&crate_path).unwrap();
-        println!("Dir: {}", dir.to_str().unwrap());
+        match devsecrets::init_devsecrets_dir_from_manifest_dir(&crate_path) {
+            Ok(dir) => println!("Dir: {}", dir.to_str().unwrap()),
+            Err(e) => println!("Unable to init directory: {}", e),
+        }
     } else if let Some(matches) = matches.subcommand_matches("path") {
-        let dir = devsecrets::get_devsecrets_dir_from_manifest_dir(&crate_path).unwrap();
-        println!("{}", dir.to_str().unwrap());
+        match devsecrets::get_devsecrets_dir_from_manifest_dir(&crate_path) {
+            Ok(dir) => println!("{}", dir.to_str().unwrap()),
+            Err(e) => println!("Unable to find devsecrets directory: {:#}", e),
+        }
+        
     }
 }

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::de::DeserializeOwned;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -53,7 +54,10 @@ pub fn get_devsecrets_dir_from_manifest_dir(
 ) -> anyhow::Result<PathBuf> {
     let manifest_dir = manifest_dir.as_ref();
     let uuid_file = manifest_dir.join(DEVSECRETS_UUID_FILE);
-    let uuid_text = std::fs::read_to_string(uuid_file)?;
+    let uuid_text = std::fs::read_to_string(&uuid_file).context(format!(
+        "Could not read file {:?}",
+        uuid_file.to_string_lossy(),
+    ))?;
     // We parse but don't keep the value to validate it's a UUID
     Uuid::parse_str(&uuid_text)?;
     let config_dir_path = devsecrets_config_root_dir().join(&uuid_text);
@@ -83,7 +87,9 @@ pub fn read_devsecret<T: DeserializeOwned>(secret_name: &str) -> anyhow::Result<
             devsecrets_dir
         );
     }
-    Ok(serde_json::from_str(&std::fs::read_to_string(secret_path)?)?)
+    Ok(serde_json::from_str(&std::fs::read_to_string(
+        secret_path,
+    )?)?)
 }
 
 #[cfg(test)]
