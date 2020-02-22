@@ -33,30 +33,39 @@ fn find_crate_root_from_wd() -> anyhow::Result<PathBuf> {
 
 fn main() {
     env_logger::init();
-    let matches = App::new("cargo devsecrets")
-        .bin_name("cargo devsecrets")
+    let matches = App::new("cargo")
+        .bin_name("cargo")
         .author(clap::crate_authors!())
         .version(clap::crate_version!())
         .setting(AppSettings::SubcommandRequired)
-        .arg(
-            Arg::with_name("crate_path")
-                .short("p")
-                .long("crate_path")
-                .takes_value(true)
-                .value_name("CRATEDIR")
-                .help(
-                    "The path to the crate to work with. If not set, \
+        .subcommand(
+            SubCommand::with_name("devsecrets")
+                .setting(AppSettings::SubcommandRequired)
+                .arg(
+                    Arg::with_name("crate_path")
+                        .short("p")
+                        .long("crate_path")
+                        .takes_value(true)
+                        .value_name("CRATEDIR")
+                        .help(
+                            "The path to the crate to work with. If not set, \
                      selects the closest ancestor that has a Cargo.toml file.",
+                        ),
+                )
+                .subcommand(
+                    SubCommand::with_name("init")
+                        .about("Initializes a devsecret directory for the current crate"),
+                )
+                .subcommand(
+                    SubCommand::with_name("path")
+                        .about("Prints the devsecret config path to stdout"),
                 ),
         )
-        .subcommand(
-            SubCommand::with_name("init")
-                .about("Initializes a devsecret directory for the current crate"),
-        )
-        .subcommand(
-            SubCommand::with_name("path").about("Prints the devsecret config path to stdout"),
-        )
         .get_matches();
+
+    let matches = matches
+        .subcommand_matches("devsecrets")
+        .expect("Must have devsecrets subcommand.");
 
     let crate_path = match matches.value_of_os("crate_path") {
         Some(path_str) => {
