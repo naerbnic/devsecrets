@@ -66,7 +66,9 @@ impl DevSecrets {
 }
 
 fn devsecrets_config_root_dir() -> anyhow::Result<PathBuf> {
-    dirs::config_dir().ok_or(anyhow::anyhow!("Could not find root config directory."))
+    dirs::config_dir()
+        .map(|p| p.join("rust-devsecrets"))
+        .ok_or(anyhow::anyhow!("Could not find root config directory."))
 }
 
 fn read_file_or_create(
