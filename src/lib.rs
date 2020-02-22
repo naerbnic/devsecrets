@@ -1,22 +1,20 @@
 use anyhow::Context;
 use serde::de::DeserializeOwned;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use uuid::Uuid;
 
 pub use devsecrets_macros::devsecrets_config;
 
-const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
-
+/// An internal module to provide features to macros safely
 pub mod internal {
     pub use lazy_static::lazy_static;
 }
 
-pub enum Error {
-}
+const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
 
 pub struct DevSecrets {
-    subdir: String
+    subdir: String,
 }
 
 impl DevSecrets {
@@ -28,8 +26,42 @@ impl DevSecrets {
 
     pub fn from_uuid_str(uuid_str: &str) -> Self {
         DevSecrets {
-            subdir: uuid_str.to_string()
+            subdir: uuid_str.to_string(),
         }
+    }
+
+    fn root_dir(&self) -> anyhow::Result<PathBuf> {
+        Ok(devsecrets_config_root_dir()?.join(&self.subdir))
+    }
+
+    fn get_relative_path(&self, relpath: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
+        let relpath = relpath.as_ref();
+        if relpath.is_absolute() {
+            anyhow::bail!("Path {:?} must not be absolute.", relpath);
+        }
+
+        // Check that we only have normal parts of the path
+        for component in relpath.components() {
+            match component {
+                Component::Normal(_) => (),
+                _ => anyhow::bail!("Path {:?} has a non-normal component.", relpath),
+            }
+        }
+
+        Ok(self.root_dir()?.join(relpath))
+    }
+
+    pub fn read_json_secret<T: DeserializeOwned>(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> anyhow::Result<T> {
+        let path = path.as_ref();
+        if path.extension() != Some(std::ffi::OsStr::new("json")) {
+            anyhow::bail!("Path {:?} must have a .json extension.", path)
+        }
+        let fullpath = self.get_relative_path(path)?;
+        let contents = std::fs::read_to_string(fullpath)?;
+        Ok(serde_json::from_str::<T>(&contents)?)
     }
 }
 
@@ -89,30 +121,6 @@ pub fn get_devsecrets_dir_from_manifest_dir(
         anyhow::bail!("Config root dir must be a directory.")
     }
     Ok(config_dir_path)
-}
-
-pub fn get_devsecrets_dir() -> anyhow::Result<PathBuf> {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").context("CARGO_MANIFEST_DIR must be defined")?;
-    get_devsecrets_dir_from_manifest_dir(&manifest_dir)
-}
-
-pub fn read_devsecret<T: DeserializeOwned>(secret_name: &str) -> anyhow::Result<T> {
-    let devsecrets_dir = get_devsecrets_dir()?;
-    let secret_filename = std::path::PathBuf::from(format!("{}.json", secret_name));
-    let secret_path = devsecrets_dir.join(&secret_filename);
-    // It's possible the secret is something that would escape the
-    // devsecrets_dir. Check that this isn't the case.
-    if secret_path.parent() != Some(&*devsecrets_dir) {
-        anyhow::bail!(
-            "secret filename \"{:?}\" escaped devsecrets_dir \"{:?}\".",
-            &secret_filename,
-            devsecrets_dir
-        );
-    }
-    Ok(serde_json::from_str(&std::fs::read_to_string(
-        secret_path,
-    )?)?)
 }
 
 #[cfg(test)]
