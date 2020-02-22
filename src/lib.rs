@@ -51,7 +51,7 @@ impl DevSecrets {
         Ok(self.root_dir()?.join(relpath))
     }
 
-    pub fn read_json_secret<T: DeserializeOwned>(
+    pub fn read_json_secret<T: DeserializeOwned, P: AsRef<Path>>(
         &self,
         path: impl AsRef<Path>,
     ) -> anyhow::Result<T> {
@@ -60,6 +60,7 @@ impl DevSecrets {
             anyhow::bail!("Path {:?} must have a .json extension.", path)
         }
         let fullpath = self.get_relative_path(path)?;
+        log::info!("Reading json secret from {:?}", fullpath);
         let contents = std::fs::read_to_string(fullpath)?;
         Ok(serde_json::from_str::<T>(&contents)?)
     }
