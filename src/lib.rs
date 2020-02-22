@@ -33,10 +33,8 @@ impl DevSecrets {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn devsecrets_config_root_dir() -> anyhow::Result<PathBuf> {
-    let xdg_basedirs = xdg::BaseDirectories::new()?;
-    Ok(xdg_basedirs.create_config_directory("rust-devsecrets")?)
+    dirs::config_dir().ok_or(anyhow::anyhow!("Could not find root config directory."))
 }
 
 fn read_file_or_create(

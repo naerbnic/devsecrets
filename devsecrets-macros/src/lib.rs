@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 mod macro_impls {
     use proc_macro2::{Span, TokenStream};
     use quote::quote;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use syn::{Ident, Token};
 
     struct DevsecretsConfig {
