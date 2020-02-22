@@ -53,7 +53,7 @@ impl DevSecrets {
 
     pub fn read_json_secret<T: DeserializeOwned, P: AsRef<Path>>(
         &self,
-        path: impl AsRef<Path>,
+        path: P,
     ) -> anyhow::Result<T> {
         let path = path.as_ref();
         if path.extension() != Some(std::ffi::OsStr::new("json")) {
