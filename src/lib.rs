@@ -4,7 +4,34 @@ use std::io;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+pub use devsecrets_macros::devsecrets_config;
+
 const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
+
+pub mod internal {
+    pub use lazy_static::lazy_static;
+}
+
+pub enum Error {
+}
+
+pub struct DevSecrets {
+    subdir: String
+}
+
+impl DevSecrets {
+    pub fn from_uuid_string(uuid_string: String) -> Self {
+        DevSecrets {
+            subdir: uuid_string,
+        }
+    }
+
+    pub fn from_uuid_str(uuid_str: &str) -> Self {
+        DevSecrets {
+            subdir: uuid_str.to_string()
+        }
+    }
+}
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 fn devsecrets_config_root_dir() -> anyhow::Result<PathBuf> {
