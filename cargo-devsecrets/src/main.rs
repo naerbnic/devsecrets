@@ -3,11 +3,32 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-fn find_crate_root(curr_dir: impl AsRef<Path>) -> anyhow::Result<Option<PathBuf>> {
-    let output = std::process::Command::new(std::env::var("CARGO").unwrap())
-        .arg("locate-project")
-        .current_dir(curr_dir.as_ref())
-        .output()?;
+struct CargoWorkspace {
+    manifest_path: PathBuf,
+    metadata: Metadata,
+}
+
+pub fn find_crate_root(
+    cargo_bin_path: impl AsRef<Path>,
+    working_dir: impl AsRef<Path>,
+    manifest_path_opt: Option<impl AsRef<Path>>,
+) -> anyhow::Result<PathBuf> {
+    let mut cmd = std::process::Command::new(cargo_bin_path.as_ref());
+    cmd.arg("locate-project").current_dir(working_dir);
+
+    if let Some(manifest_path) = manifest_path_opt {
+        cmd.arg("--manifest-path").arg(manifest_path.as_ref());
+    }
+
+    let output = cmd.output()?;
+
+    if output.status.code() == Some(101) {
+        anyhow::bail!(
+            "Could not find manifest file: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
     #[derive(Deserialize)]
     struct LocateProjectOutput {
         root: String,
@@ -15,35 +36,53 @@ fn find_crate_root(curr_dir: impl AsRef<Path>) -> anyhow::Result<Option<PathBuf>
 
     let LocateProjectOutput { root } =
         serde_json::from_slice::<LocateProjectOutput>(&output.stdout)?;
-    Ok(Some(PathBuf::from(root)))
+    Ok(PathBuf::from(root))
 }
 
-fn find_crate_root_from_wd() -> anyhow::Result<PathBuf> {
-    match find_crate_root(std::env::current_dir()?)? {
-        Some(path) => Ok(path),
-        None => anyhow::bail!("Could not find crate root."),
+pub fn retrieve_metadata(manifest_path: impl AsRef<Path>) -> anyhow::Result<Metadata> {
+    let mut cmd = cargo_metadata::MetadataCommand::new();
+    cmd.manifest_path(manifest_path);
+    cmd.no_deps();
+    Ok(cmd.exec()?)
+}
+
+impl CargoWorkspace {
+    pub fn with_opt_manifest_path(manifest_path_opt: Option<&Path>) -> anyhow::Result<Self> {
+        let cargo_bin_path = match std::env::var_os("CARGO") {
+            Some(p) => p,
+            None => anyhow::bail!(""),
+        };
+
+        let working_dir = std::env::current_dir()?;
+
+        let manifest_path = find_crate_root(cargo_bin_path, working_dir, manifest_path_opt)?;
+
+        let metadata = retrieve_metadata(&manifest_path)?;
+
+        Ok(CargoWorkspace {
+            manifest_path,
+            metadata,
+        })
     }
-}
 
-fn find_package_with_name<'a>(metadata: &'a Metadata, name: &str) -> Option<&'a Package> {
-    metadata.packages.iter().find(|p| p.name == name)
-}
+    pub fn find_default_package<'a>(&'a self) -> &'a Package {
+        for package in &self.metadata.packages {
+            if package.manifest_path == self.manifest_path {
+                return package;
+            }
+        }
 
-fn find_package_from_manifest_dir<'a>(
-    metadata: &'a Metadata,
-    manifest_dir: impl AsRef<Path>,
-) -> Option<&'a Package> {
-    let manifest_dir = manifest_dir.as_ref();
-    metadata
-        .packages
-        .iter()
-        .find(|p| p.manifest_path == manifest_dir)
-}
+        panic!("Metadata must include the default package");
+    }
 
-fn find_curr_package<'a>(metadata: &'a Metadata, name_opt: Option<&str>) -> Option<&'a Package> {
-    match name_opt {
-        Some(name) => find_package_with_name(metadata, name),
-        None => find_package_from_manifest_dir(metadata, find_crate_root_from_wd().unwrap()),
+    pub fn find_package<'a>(&'a self, name: &str) -> Option<&'a Package> {
+        for package in &self.metadata.packages {
+            if package.name == name {
+                return Some(package);
+            }
+        }
+
+        None
     }
 }
 
@@ -69,14 +108,14 @@ fn main() {
                 )
                 .arg(
                     Arg::with_name("package")
-                    .long("package")
-                    .short("p")
-                    .takes_value(true)
-                    .value_name("PACKAGENAME")
-                    .help(
-                        "The package name within the workspace to work with. \
-                        Defaults to the current package."
-                    )
+                        .long("package")
+                        .short("p")
+                        .takes_value(true)
+                        .value_name("PACKAGENAME")
+                        .help(
+                            "The package name within the workspace to work with. \
+                        Defaults to the current package.",
+                        ),
                 )
                 .subcommand(
                     SubCommand::with_name("init")
@@ -93,14 +132,15 @@ fn main() {
         .subcommand_matches("devsecrets")
         .expect("Must have devsecrets subcommand.");
 
-    let mut cmd = cargo_metadata::MetadataCommand::new();
-    if let Some(path) = matches.value_of("manifest-path") {
-        cmd.manifest_path(path);
-    }
-    cmd.no_deps();
-    let metadata = cmd.exec().unwrap();
+    let workspace = CargoWorkspace::with_opt_manifest_path(
+        matches.value_of_os("manifest-path").map(|p| Path::new(p)),
+    )
+    .expect("");
 
-    let curr_package = find_curr_package(&metadata, matches.value_of("package")).unwrap();
+    let curr_package = match matches.value_of("package") {
+        Some(pkg_name) => workspace.find_package(pkg_name).unwrap(),
+        None => workspace.find_default_package(),
+    };
 
     let manifest_dir = &curr_package.manifest_path.parent().unwrap();
 
