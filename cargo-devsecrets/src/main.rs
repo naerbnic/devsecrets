@@ -17,7 +17,7 @@ fn main() {
                     Arg::with_name("manifest-path")
                         .long("manifest-path")
                         .takes_value(true)
-                        .value_name("CRATEDIR")
+                        .value_name("MANIFESTFILE")
                         .help("The path to the crate manifest to work with."),
                 )
                 .arg(
