@@ -4,14 +4,14 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 use uuid::Uuid;
 
-pub use devsecrets_macros::devsecrets_config;
+pub use devsecrets_macros::devsecrets_id;
 
 /// An internal module to provide features to macros safely
 pub mod internal {
     pub use lazy_static::lazy_static;
 }
 
-const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
+pub use devsecrets_core::DevsecretsId as Id;
 
 pub struct DevSecrets {
     subdir: String,
@@ -93,7 +93,7 @@ pub fn init_devsecrets_dir_from_manifest_dir(
     manifest_dir: impl AsRef<Path>,
 ) -> anyhow::Result<PathBuf> {
     let manifest_dir = manifest_dir.as_ref();
-    let uuid_file = manifest_dir.join(DEVSECRETS_UUID_FILE);
+    let uuid_file = manifest_dir.join(devsecrets_core::DEVSECRETS_UUID_FILE);
     let uuid_text = read_file_or_create(uuid_file, || {
         Uuid::new_v4()
             .to_hyphenated()
@@ -111,7 +111,7 @@ pub fn get_devsecrets_dir_from_manifest_dir(
     manifest_dir: impl AsRef<Path>,
 ) -> anyhow::Result<PathBuf> {
     let manifest_dir = manifest_dir.as_ref();
-    let uuid_file = manifest_dir.join(DEVSECRETS_UUID_FILE);
+    let uuid_file = manifest_dir.join(devsecrets_core::DEVSECRETS_UUID_FILE);
     let uuid_text = std::fs::read_to_string(&uuid_file).context(format!(
         "Could not read file {:?}",
         uuid_file.to_string_lossy(),

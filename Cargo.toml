@@ -15,6 +15,7 @@ devsecrets-macros = { path = "devsecrets-macros" }
 lazy_static = "1.4.0"
 dirs = "2.0.2"
 log = "0.4.8"
+devsecrets-core = { path = "devsecrets-core" }
 
 [workspace]
-members = ["cargo-devsecrets", "devsecrets-macros"]
+members = ["cargo-devsecrets", "devsecrets-macros", "devsecrets-core"]
