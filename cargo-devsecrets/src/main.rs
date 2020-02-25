@@ -30,7 +30,8 @@ fn main() {
         }
     } else if let Some(_) = matches.subcommand_matches("path") {
         match devsecrets::get_devsecrets_dir_from_manifest_dir(manifest_dir) {
-            Ok(dir) => println!("{}", dir.to_str().unwrap()),
+            Ok(Some(dir)) => println!("{}", dir.to_str().unwrap()),
+            Ok(None) => println!("Devsecrets dir has not be initialized. Run init."),
             Err(e) => println!("Unable to find devsecrets directory: {:#}", e),
         }
     } else if let Some(matches) = matches.subcommand_matches("completions") {
