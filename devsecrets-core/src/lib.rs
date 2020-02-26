@@ -6,7 +6,7 @@ use uuid::Uuid;
 pub const DEVSECRETS_CONFIG_DIR: &str = "rust-devsecrets";
 pub const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
 
-pub fn read_uuid(manifest_dir: impl AsRef<Path>) -> io::Result<Option<Uuid>> {
+fn read_uuid(manifest_dir: impl AsRef<Path>) -> io::Result<Option<Uuid>> {
     let uuid_file = manifest_dir.as_ref().join(DEVSECRETS_UUID_FILE);
     if !uuid_file.exists() {
         return Ok(None);
@@ -24,28 +24,28 @@ pub fn read_uuid(manifest_dir: impl AsRef<Path>) -> io::Result<Option<Uuid>> {
     Ok(Some(uuid))
 }
 
-pub fn read_devsecrets_id(manifest_dir: impl AsRef<Path>) -> io::Result<Option<DevsecretsId>> {
-    Ok(read_uuid(manifest_dir)?.map(DevsecretsId::from_uuid))
+pub fn read_devsecrets_id(manifest_dir: impl AsRef<Path>) -> io::Result<Option<DevSecretsId>> {
+    Ok(read_uuid(manifest_dir)?.map(DevSecretsId::from_uuid))
 }
 
-pub fn ensure_devsecrets_id(manifest_dir: impl AsRef<Path>) -> io::Result<DevsecretsId> {
+pub fn ensure_devsecrets_id(manifest_dir: impl AsRef<Path>) -> io::Result<DevSecretsId> {
     let manifest_dir = manifest_dir.as_ref();
     match read_devsecrets_id(manifest_dir)? {
         Some(id) => Ok(id),
         None => {
             let uuid_file = manifest_dir.join(DEVSECRETS_UUID_FILE);
-            let new_id = DevsecretsId::new_unique();
+            let new_id = DevSecretsId::new_unique();
             std::fs::write(uuid_file, new_id.id_str())?;
             Ok(new_id)
         }
     }
 }
 
-pub struct DevsecretsRootDir {
+pub struct DevSecretsRootDir {
     config_dir: PathBuf,
 }
 
-impl DevsecretsRootDir {
+impl DevSecretsRootDir {
     pub fn with_config_root(root: impl AsRef<Path>) -> io::Result<Option<Self>> {
         let root = root.as_ref();
         let config_dir = root.join(DEVSECRETS_CONFIG_DIR);
@@ -55,7 +55,7 @@ impl DevsecretsRootDir {
         if !config_dir.is_dir() {
             return Err(io::ErrorKind::AlreadyExists.into());
         }
-        Ok(Some(DevsecretsRootDir { config_dir }))
+        Ok(Some(DevSecretsRootDir { config_dir }))
     }
 
     pub fn new() -> io::Result<Option<Self>> {
@@ -63,7 +63,7 @@ impl DevsecretsRootDir {
             Some(p) => p,
             None => return Err(io::ErrorKind::NotFound.into()),
         };
-        DevsecretsRootDir::with_config_root(config_root)
+        DevSecretsRootDir::with_config_root(config_root)
     }
 
     pub fn ensure_with_config_root(root: impl AsRef<Path>) -> io::Result<Self> {
@@ -75,7 +75,7 @@ impl DevsecretsRootDir {
 
         let config_dir = root.join(DEVSECRETS_CONFIG_DIR);
         std::fs::create_dir_all(&config_dir)?;
-        Ok(DevsecretsRootDir { config_dir })
+        Ok(DevSecretsRootDir { config_dir })
     }
 
     pub fn ensure_new() -> io::Result<Self> {
@@ -83,10 +83,10 @@ impl DevsecretsRootDir {
             Some(p) => p,
             None => return Err(io::ErrorKind::NotFound.into()),
         };
-        DevsecretsRootDir::ensure_with_config_root(config_root)
+        DevSecretsRootDir::ensure_with_config_root(config_root)
     }
 
-    pub fn get_child(&self, id: &DevsecretsId) -> io::Result<Option<DevsecretsDir>> {
+    pub fn get_child(&self, id: &DevSecretsId) -> io::Result<Option<DevSecretsDir>> {
         let child_dir = self.config_dir.join(id.id_str());
 
         if !child_dir.exists() {
@@ -98,23 +98,23 @@ impl DevsecretsRootDir {
             return Err(io::ErrorKind::AlreadyExists.into());
         }
 
-        Ok(Some(DevsecretsDir { dir: child_dir }))
+        Ok(Some(DevSecretsDir { dir: child_dir }))
     }
 
-    pub fn ensure_child(&self, id: &DevsecretsId) -> io::Result<DevsecretsDir> {
+    pub fn ensure_child(&self, id: &DevSecretsId) -> io::Result<DevSecretsDir> {
         let child_dir = self.config_dir.join(id.id_str());
 
         std::fs::create_dir_all(&child_dir)?;
-        Ok(DevsecretsDir { dir: child_dir })
+        Ok(DevSecretsDir { dir: child_dir })
     }
 }
 
-pub struct DevsecretsId(pub Cow<'static, str>);
+pub struct DevSecretsId(pub Cow<'static, str>);
 
-impl DevsecretsId {
+impl DevSecretsId {
     pub fn new_unique() -> Self {
         let uuid = Uuid::new_v4();
-        DevsecretsId(
+        DevSecretsId(
             uuid.to_hyphenated()
                 .encode_lower(&mut Uuid::encode_buffer())
                 .to_string()
@@ -125,7 +125,7 @@ impl DevsecretsId {
     pub fn from_uuid(uuid: Uuid) -> Self {
         let mut buffer = Uuid::encode_buffer();
         let uuid_str = uuid.to_hyphenated().encode_lower(&mut buffer);
-        DevsecretsId(uuid_str.to_string().into())
+        DevSecretsId(uuid_str.to_string().into())
     }
 
     pub fn id_str(&self) -> &str {
@@ -133,11 +133,11 @@ impl DevsecretsId {
     }
 }
 
-pub struct DevsecretsDir {
+pub struct DevSecretsDir {
     dir: PathBuf,
 }
 
-impl DevsecretsDir {
+impl DevSecretsDir {
     pub fn path<'a>(&'a self) -> &'a Path {
         &self.dir
     }

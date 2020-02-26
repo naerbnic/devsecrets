@@ -3,15 +3,15 @@ use std::path::{Component, Path, PathBuf};
 
 pub use devsecrets_macros::devsecrets_id;
 
-pub use devsecrets_core::DevsecretsId as Id;
+pub use devsecrets_core::DevSecretsId as Id;
 
 pub struct DevSecrets {
-    dir: devsecrets_core::DevsecretsDir,
+    dir: devsecrets_core::DevSecretsDir,
 }
 
 impl DevSecrets {
     pub fn from_id(id: &Id) -> anyhow::Result<Option<Self>> {
-        let root = match devsecrets_core::DevsecretsRootDir::new()? {
+        let root = match devsecrets_core::DevSecretsRootDir::new()? {
             Some(root) => root,
             None => return Ok(None),
         };
@@ -63,7 +63,7 @@ pub fn init_devsecrets_dir_from_manifest_dir(
     manifest_dir: impl AsRef<Path>,
 ) -> anyhow::Result<PathBuf> {
     let id = devsecrets_core::ensure_devsecrets_id(manifest_dir)?;
-    let root = devsecrets_core::DevsecretsRootDir::ensure_new()?;
+    let root = devsecrets_core::DevSecretsRootDir::ensure_new()?;
     let child = root.ensure_child(&id)?;
     Ok(child.path().to_path_buf())
 }
@@ -72,9 +72,8 @@ pub fn get_devsecrets_dir_from_manifest_dir(
     manifest_dir: impl AsRef<Path>,
 ) -> anyhow::Result<Option<PathBuf>> {
     let id = devsecrets_core::read_devsecrets_id(manifest_dir)?
-
         .ok_or(anyhow::anyhow!("Could not read devsecrets id from project"))?;
-    let root = match devsecrets_core::DevsecretsRootDir::new()? {
+    let root = match devsecrets_core::DevSecretsRootDir::new()? {
         Some(root) => root,
         None => return Ok(None),
     };
