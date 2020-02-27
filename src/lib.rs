@@ -170,9 +170,9 @@ impl DevSecrets {
     ///
     /// We use a builder-like pattern to read data to allow types to be explicitly
     /// stated when necessary, such as the type the value should be deserialized into.
-    /// 
+    ///
     /// Example:
-    /// 
+    ///
     /// ```text
     /// secrets
     ///     .read_from("my_path.json")
@@ -223,6 +223,7 @@ impl<'a> Source<'a> {
     }
 }
 
+/// An intermediate type created from `Source::with_format()`.
 pub struct SourceWithFormat<'a, F>
 where
     F: Format,
@@ -236,6 +237,7 @@ impl<'a, F> SourceWithFormat<'a, F>
 where
     F: Format,
 {
+    /// Deserializes the indicated file using the indicated format of type `T`.
     pub fn into_value<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
         check_extension(self.path, self.format.extension().as_ref())?;
         Ok(self
@@ -245,17 +247,43 @@ where
     }
 }
 
+/// A type of file format that can be deserialized using `serde`.
 pub trait Format {
+    /// The error type that deserialization can create. Is returned as the
+    /// cause of `AccessError::ParseError`.
     type Error: std::error::Error + Sync + Send + Sized + 'static;
 
+    /// The file extension expected for the source file.
     fn extension(&self) -> &str;
+
+    /// Deserializes the data in the given reader into a value of type T, or
+    /// returns a `Self::Error`.
     fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
         &self,
         reader: R,
     ) -> Result<T, Self::Error>;
 }
 
-#[derive(Debug)]
+impl<F: Format> Format for &'_ F {
+    type Error = F::Error;
+
+    fn extension(&self) -> &str {
+        (*self).extension()
+    }
+
+    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
+        &self,
+        reader: R,
+    ) -> Result<T, Self::Error> {
+        (*self).deserialize::<T, R>(reader)
+    }
+}
+
+/// The JSON file format.
+/// 
+/// Used as input for `Source::with_format()` when the file format should be a
+/// JSON file.
+#[derive(Debug, Default)]
 pub struct JsonFormat;
 
 impl Format for JsonFormat {
