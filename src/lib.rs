@@ -219,7 +219,7 @@ impl<'a, F> SourceWithFormat<'a, F>
 where
     F: Format,
 {
-    pub fn into<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
+    pub fn into_value<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
         check_extension(self.path, self.format.extension().as_ref())?;
         Ok(self
             .format
