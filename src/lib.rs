@@ -182,7 +182,7 @@ impl DevSecrets {
             .map_err(|e| AccessError::ParseError(Box::new(e)))?)
     }
 
-    pub fn read_from<'a, P: AsRef<Path>>(&'a self, path: &'a P) -> Source<'a> {
+    pub fn read_from<'a, P: AsRef<Path> + ?Sized>(&'a self, path: &'a P) -> Source<'a> {
         Source {
             secrets: self,
             path: path.as_ref(),
