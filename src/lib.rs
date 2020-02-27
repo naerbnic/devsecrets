@@ -32,8 +32,10 @@ use std::path::{Component, Path, PathBuf};
 /// current environment.
 pub use devsecrets_macros::devsecrets_id as import_id;
 
-// Re-export the DevSecretsId struct to be used as an Id
-pub use devsecrets_core::DevSecretsId as Id;
+#[doc(hidden)]
+pub use devsecrets_core as internal_core;
+
+pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
 
 /// Errors that occur when attempting to access secret files within a `DevSecrets` instance.
 #[non_exhaustive]
@@ -91,7 +93,7 @@ impl DevSecrets {
             Some(root) => root,
             None => return Ok(None),
         };
-        let child = match root.get_child(id)? {
+        let child = match root.get_child(&id.0)? {
             Some(child) => child,
             None => return Ok(None),
         };

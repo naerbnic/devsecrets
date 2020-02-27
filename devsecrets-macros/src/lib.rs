@@ -48,7 +48,9 @@ mod macro_impls {
         let uuid_str = syn::LitStr::new(id.id_str(), Span::call_site());
 
         quote! {
-            #pub_fragment static #name: ::devsecrets::Id = ::devsecrets::Id(::std::borrow::Cow::Borrowed(#uuid_str));
+            #pub_fragment static #name: ::devsecrets::Id =
+                ::devsecrets::Id(::devsecrets::internal_core::DevsecretsId(
+                    ::std::borrow::Cow::Borrowed(#uuid_str)));
         }
     }
 }
