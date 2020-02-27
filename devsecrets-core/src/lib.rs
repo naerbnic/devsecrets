@@ -59,11 +59,10 @@ impl DevSecretsRootDir {
     }
 
     pub fn new() -> io::Result<Option<Self>> {
-        let config_root = match dirs::config_dir() {
-            Some(p) => p,
-            None => return Err(io::ErrorKind::NotFound.into()),
-        };
-        DevSecretsRootDir::with_config_root(config_root)
+        match dirs::config_dir() {
+            Some(p) => DevSecretsRootDir::with_config_root(p),
+            None => Ok(None),
+        }
     }
 
     pub fn ensure_with_config_root(root: impl AsRef<Path>) -> io::Result<Self> {
