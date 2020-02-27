@@ -35,6 +35,10 @@ pub use devsecrets_macros::devsecrets_id as import_id;
 #[doc(hidden)]
 pub use devsecrets_core as internal_core;
 
+/// An opaque devsecrets ID for a project.
+/// 
+/// This value must be defined using the `import_id!()` macro. It's contents are
+/// opaque, but can be used to create a DevSecrets instance using `DevSecrets::from_id(&id)`.
 pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
 
 /// Errors that occur when attempting to access secret files within a `DevSecrets` instance.
