@@ -36,7 +36,7 @@ pub use devsecrets_macros::devsecrets_id as import_id;
 pub use devsecrets_core as internal_core;
 
 /// An opaque devsecrets ID for a project.
-/// 
+///
 /// This value must be defined using the `import_id!()` macro. It's contents are
 /// opaque, but can be used to create a DevSecrets instance using `DevSecrets::from_id(&id)`.
 pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
@@ -89,7 +89,7 @@ fn check_extension(p: &Path, ext: &str) -> Result<(), AccessError> {
 ///
 /// This can be obtained by calling `DevSecrets::from_id(&ID)` with a devsecrets
 /// ID imported via `import_id!()`.
-/// 
+///
 /// Note: This API does not allow writing to the secrets directory. Use the
 /// `cargo devsecrets` tool to help with that.
 pub struct DevSecrets {
@@ -147,31 +147,32 @@ impl DevSecrets {
         Ok(self.root_dir().join(relpath))
     }
 
-    /// Creates a reader to the given relative path in the devsecrets directory.
-    pub fn make_reader(&self, path: impl AsRef<Path>) -> Result<impl std::io::Read, AccessError> {
+    fn make_reader_inner(&self, path: impl AsRef<Path>) -> Result<std::fs::File, AccessError> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
         Ok(std::fs::File::open(fullpath).map_err(AccessError::FileError)?)
     }
 
-    /// Returns the contents of the given secrets file as a vector buffer.
-    pub fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
+    /// Creates a reader to the given relative path in the devsecrets directory.
+    fn make_reader(&self, path: impl AsRef<Path>) -> Result<impl std::io::Read, AccessError> {
+        self.make_reader_inner(path)
+    }
+
+    fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
         let contents = std::fs::read(fullpath).map_err(AccessError::FileError)?;
         Ok(contents)
     }
 
-    /// Returns the contents of the given secrets file as a string. A ParseError
-    /// is returned if the file is not a valid utf8 encoded text file.
-    pub fn read_str(&self, path: impl AsRef<Path>) -> Result<String, AccessError> {
+    fn read_str(&self, path: impl AsRef<Path>) -> Result<String, AccessError> {
         let contents = self.read(path)?;
         let string =
             String::from_utf8(contents).map_err(|e| AccessError::ParseError(Box::new(e)))?;
         Ok(string)
     }
 
-    pub fn read_json_secret<T: DeserializeOwned>(
+    pub fn read_format<T: DeserializeOwned>(
         &self,
         path: impl AsRef<Path>,
     ) -> Result<T, AccessError> {
@@ -179,5 +180,93 @@ impl DevSecrets {
         check_extension(path, "json")?;
         Ok(serde_json::from_reader(self.make_reader(path)?)
             .map_err(|e| AccessError::ParseError(Box::new(e)))?)
+    }
+
+    pub fn read_from<'a>(&'a self, path: &'a impl AsRef<Path>) -> Source<'a> {
+        Source {
+            secrets: self,
+            path: path.as_ref(),
+        }
+    }
+}
+
+pub struct Source<'a> {
+    secrets: &'a DevSecrets,
+    path: &'a Path,
+}
+
+impl<'a> Source<'a> {
+    pub fn with_format<F: Format>(&self, fmt: F) -> SourceWithFormat<'a, F> {
+        SourceWithFormat {
+            secrets: self.secrets,
+            path: self.path,
+            format: fmt,
+        }
+    }
+
+    /// Creates a reader to the given relative path in the devsecrets directory.
+    pub fn as_reader(&self) -> Result<impl std::io::Read, AccessError> {
+        self.secrets.make_reader_inner(self.path)
+    }
+
+    /// Returns the contents of the given secrets file as a vector buffer.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, AccessError> {
+        self.secrets.read(self.path)
+    }
+
+    /// Returns the contents of the given secrets file as a string. A ParseError
+    /// is returned if the file is not a valid utf8 encoded text file.
+    pub fn to_string(&self) -> Result<String, AccessError> {
+        self.secrets.read_str(self.path)
+    }
+}
+
+pub struct SourceWithFormat<'a, F>
+where
+    F: Format,
+{
+    secrets: &'a DevSecrets,
+    path: &'a Path,
+    format: F,
+}
+
+impl<'a, F> SourceWithFormat<'a, F>
+where
+    F: Format,
+{
+    pub fn into_type<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
+        check_extension(self.path, self.format.extension().as_ref())?;
+        Ok(self
+            .format
+            .deserialize::<T, std::fs::File>(self.secrets.make_reader_inner(self.path)?)
+            .map_err(|e: F::Error| AccessError::ParseError(Box::new(e)))?)
+    }
+}
+
+pub trait Format {
+    type Error: std::error::Error + Sync + Send + Sized + 'static;
+
+    fn extension(&self) -> &str;
+    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
+        &self,
+        reader: R,
+    ) -> Result<T, Self::Error>;
+}
+
+#[derive(Debug)]
+pub struct JsonFormat;
+
+impl Format for JsonFormat {
+    type Error = serde_json::Error;
+
+    fn extension(&self) -> &str {
+        "json"
+    }
+
+    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
+        &self,
+        reader: R,
+    ) -> Result<T, serde_json::Error> {
+        serde_json::from_reader(reader)
     }
 }
