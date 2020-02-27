@@ -85,6 +85,9 @@ fn check_extension(p: &Path, ext: &str) -> Result<(), AccessError> {
 ///
 /// This can be obtained by calling `DevSecrets::from_id(&ID)` with a devsecrets
 /// ID imported via `import_id!()`.
+/// 
+/// Note: This API does not allow writing to the secrets directory. Use the
+/// `cargo devsecrets` tool to help with that.
 pub struct DevSecrets {
     dir: devsecrets_core::DevSecretsDir,
 }
@@ -140,12 +143,14 @@ impl DevSecrets {
         Ok(self.root_dir().join(relpath))
     }
 
+    /// Creates a reader to the given relative path in the devsecrets directory.
     pub fn make_reader(&self, path: impl AsRef<Path>) -> Result<impl std::io::Read, AccessError> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
         Ok(std::fs::File::open(fullpath).map_err(AccessError::FileError)?)
     }
 
+    /// Returns the contents of the given secrets file as a vector buffer.
     pub fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
@@ -153,6 +158,8 @@ impl DevSecrets {
         Ok(contents)
     }
 
+    /// Returns the contents of the given secrets file as a string. A ParseError
+    /// is returned if the file is not a valid utf8 encoded text file.
     pub fn read_str(&self, path: impl AsRef<Path>) -> Result<String, AccessError> {
         let contents = self.read(path)?;
         let string =
@@ -160,9 +167,9 @@ impl DevSecrets {
         Ok(string)
     }
 
-    pub fn read_json_secret<T: DeserializeOwned, P: AsRef<Path>>(
+    pub fn read_json_secret<T: DeserializeOwned>(
         &self,
-        path: P,
+        path: impl AsRef<Path>,
     ) -> Result<T, AccessError> {
         let path = path.as_ref();
         check_extension(path, "json")?;
