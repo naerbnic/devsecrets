@@ -3,7 +3,6 @@
 //!
 //! # Devsecret
 
-use serde::de::DeserializeOwned;
 use std::path::{Component, Path, PathBuf};
 
 // Re-export the devsecrets_id macro to make it available to users.
@@ -167,6 +166,19 @@ impl DevSecrets {
         Ok(string)
     }
 
+    /// Indicates that data should be read from the given path.
+    ///
+    /// We use a builder-like pattern to read data to allow types to be explicitly
+    /// stated when necessary, such as the type the value should be deserialized into.
+    /// 
+    /// Example:
+    /// 
+    /// ```text
+    /// secrets
+    ///     .read_from("my_path.json")
+    ///     .with_format(devsecrets::JsonFormat)
+    ///     .into_value::<MyType>()?;
+    /// ```
     pub fn read_from<'a, P: AsRef<Path> + ?Sized>(&'a self, path: &'a P) -> Source<'a> {
         Source {
             secrets: self,
@@ -175,12 +187,17 @@ impl DevSecrets {
     }
 }
 
+/// An intermediate type created from `DevSecrets::read_from()`.
 pub struct Source<'a> {
     secrets: &'a DevSecrets,
     path: &'a Path,
 }
 
 impl<'a> Source<'a> {
+    /// Indicates that the file should be deserialized with the given format.
+    ///
+    /// Returns a `SourceWithFormat` that can be used to deserialize a specific
+    /// type.
     pub fn with_format<F: Format>(&self, fmt: F) -> SourceWithFormat<'a, F> {
         SourceWithFormat {
             secrets: self.secrets,
