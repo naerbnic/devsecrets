@@ -42,10 +42,10 @@ pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
 #[derive(thiserror::Error, Debug)]
 pub enum AccessError {
     /// Indicates the relative path used to access the secret is invalid.
-    /// 
+    ///
     /// Relative paths must be relative, and not include any up-references to the parent path.
     /// For example, on unix platforms:
-    /// 
+    ///
     /// - `"mysecret.txt"` is **valid**.
     /// - `"a/b/c.txt"` is **valid**.
     /// - `"/etc/passwd"` is **invalid**.
@@ -55,7 +55,7 @@ pub enum AccessError {
     InvalidRelativePath(String),
 
     /// Indicates the relative path used does not end with the expected extension.
-    /// 
+    ///
     /// This is used when using a method of `DevSecrets` that expects a specific
     /// datatype.
     #[error("Invalid file extension: {0}")]
@@ -70,8 +70,19 @@ pub enum AccessError {
     ParseError(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
+fn check_extension(p: &Path, ext: &str) -> Result<(), AccessError> {
+    if p.extension() != Some(std::ffi::OsStr::new(ext)) {
+        return Err(AccessError::InvalidExtension(format!(
+            "Path {:?} must have a .json extension.",
+            p
+        )));
+    }
+
+    Ok(())
+}
+
 /// Used to access the files inside of the devsecrets directory for your project.
-/// 
+///
 /// This can be obtained by calling `DevSecrets::from_id(&ID)` with a devsecrets
 /// ID imported via `import_id!()`.
 pub struct DevSecrets {
@@ -80,16 +91,15 @@ pub struct DevSecrets {
 
 impl DevSecrets {
     /// Create a `DevSecrets` instance from an `Id`.
-    /// 
+    ///
     /// Returns an `Err(std::io::Error)` if there was a low-level issue reading
     /// the devsecrets directory. Returns `Ok(None)` if no devsecrets directory
     /// was found. Returns `Ok(Some(_))` when the devsecrets directory was found
     /// and ready to use.
-    /// 
-    /// The `Id` value passed to this function can be obtained via `import_id!()`. 
+    ///
+    /// The `Id` value passed to this function can be obtained via `import_id!()`.
     pub fn from_id(id: &Id) -> std::io::Result<Option<Self>> {
-        let root = match devsecrets_core::DevSecretsRootDir::new()?
-        {
+        let root = match devsecrets_core::DevSecretsRootDir::new()? {
             Some(root) => root,
             None => return Ok(None),
         };
@@ -130,21 +140,33 @@ impl DevSecrets {
         Ok(self.root_dir().join(relpath))
     }
 
+    pub fn make_reader(&self, path: impl AsRef<Path>) -> Result<impl std::io::Read, AccessError> {
+        let path = path.as_ref();
+        let fullpath = self.get_relative_path(path)?;
+        Ok(std::fs::File::open(fullpath).map_err(AccessError::FileError)?)
+    }
+
+    pub fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
+        let path = path.as_ref();
+        let fullpath = self.get_relative_path(path)?;
+        let contents = std::fs::read(fullpath).map_err(AccessError::FileError)?;
+        Ok(contents)
+    }
+
+    pub fn read_str(&self, path: impl AsRef<Path>) -> Result<String, AccessError> {
+        let contents = self.read(path)?;
+        let string =
+            String::from_utf8(contents).map_err(|e| AccessError::ParseError(Box::new(e)))?;
+        Ok(string)
+    }
+
     pub fn read_json_secret<T: DeserializeOwned, P: AsRef<Path>>(
         &self,
         path: P,
     ) -> Result<T, AccessError> {
         let path = path.as_ref();
-        if path.extension() != Some(std::ffi::OsStr::new("json")) {
-            return Err(AccessError::InvalidExtension(format!(
-                "Path {:?} must have a .json extension.",
-                path
-            )));
-        }
-        let fullpath = self.get_relative_path(path)?;
-        log::info!("Reading json secret from {:?}", fullpath);
-        let contents = std::fs::read_to_string(fullpath).map_err(AccessError::FileError)?;
-        Ok(serde_json::from_str::<T>(&contents)
+        check_extension(path, "json")?;
+        Ok(serde_json::from_reader(self.make_reader(path)?)
             .map_err(|e| AccessError::ParseError(Box::new(e)))?)
     }
 }
