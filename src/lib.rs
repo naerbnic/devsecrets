@@ -153,11 +153,6 @@ impl DevSecrets {
         Ok(std::fs::File::open(fullpath).map_err(AccessError::FileError)?)
     }
 
-    /// Creates a reader to the given relative path in the devsecrets directory.
-    fn make_reader(&self, path: impl AsRef<Path>) -> Result<impl std::io::Read, AccessError> {
-        self.make_reader_inner(path)
-    }
-
     fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
@@ -170,16 +165,6 @@ impl DevSecrets {
         let string =
             String::from_utf8(contents).map_err(|e| AccessError::ParseError(Box::new(e)))?;
         Ok(string)
-    }
-
-    pub fn read_format<T: DeserializeOwned>(
-        &self,
-        path: impl AsRef<Path>,
-    ) -> Result<T, AccessError> {
-        let path = path.as_ref();
-        check_extension(path, "json")?;
-        Ok(serde_json::from_reader(self.make_reader(path)?)
-            .map_err(|e| AccessError::ParseError(Box::new(e)))?)
     }
 
     pub fn read_from<'a, P: AsRef<Path> + ?Sized>(&'a self, path: &'a P) -> Source<'a> {
@@ -234,7 +219,7 @@ impl<'a, F> SourceWithFormat<'a, F>
 where
     F: Format,
 {
-    pub fn into_type<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
+    pub fn into<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
         check_extension(self.path, self.format.extension().as_ref())?;
         Ok(self
             .format
