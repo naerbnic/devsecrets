@@ -67,11 +67,24 @@ pub enum AccessError {
     #[error("Could not parse file data: {0}")]
     ParseError(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
+
+/// Used to access the files inside of the devsecrets directory for your project.
+/// 
+/// This can be obtained by calling `DevSecrets::from_id(&ID)` with a devsecrets
+/// ID imported via `import_id!()`.
 pub struct DevSecrets {
     dir: devsecrets_core::DevSecretsDir,
 }
 
 impl DevSecrets {
+    /// Create a `DevSecrets` instance from an `Id`.
+    /// 
+    /// Returns an `Err(std::io::Error)` if there was a low-level issue reading
+    /// the devsecrets directory. Returns `Ok(None)` if no devsecrets directory
+    /// was found. Returns `Ok(Some(_))` when the devsecrets directory was found
+    /// and ready to use.
+    /// 
+    /// The `Id` value passed to this function can be obtained via `import_id!()`. 
     pub fn from_id(id: &Id) -> std::io::Result<Option<Self>> {
         let root = match devsecrets_core::DevSecretsRootDir::new()?
         {
