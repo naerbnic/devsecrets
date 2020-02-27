@@ -16,4 +16,4 @@ devsecrets-core = { path = "devsecrets-core" }
 thiserror = "1.0.11"
 
 [workspace]
-members = ["cargo-devsecrets", "devsecrets-macros", "devsecrets-core"]
+members = ["devsecrets-macros", "devsecrets-core"]

@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "devsecrets"
+		},
+		{
+			"path": "cargo-devsecrets"
+		}
+	],
+	"settings": {}
+}
