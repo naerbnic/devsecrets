@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub const DEVSECRETS_CONFIG_DIR: &str = "rust-devsecrets";
-pub const DEVSECRETS_UUID_FILE: &str = ".devsecrets_uuid.txt";
+pub const DEVSECRETS_ID_FILE: &str = ".devsecrets_id.txt";
 
 fn read_uuid(manifest_dir: impl AsRef<Path>) -> io::Result<Option<Uuid>> {
-    let uuid_file = manifest_dir.as_ref().join(DEVSECRETS_UUID_FILE);
+    let uuid_file = manifest_dir.as_ref().join(DEVSECRETS_ID_FILE);
     if !uuid_file.exists() {
         return Ok(None);
     }
@@ -33,7 +33,7 @@ pub fn ensure_devsecrets_id(manifest_dir: impl AsRef<Path>) -> io::Result<DevSec
     match read_devsecrets_id(manifest_dir)? {
         Some(id) => Ok(id),
         None => {
-            let uuid_file = manifest_dir.join(DEVSECRETS_UUID_FILE);
+            let uuid_file = manifest_dir.join(DEVSECRETS_ID_FILE);
             let new_id = DevSecretsId::new_unique();
             std::fs::write(uuid_file, new_id.id_str())?;
             Ok(new_id)

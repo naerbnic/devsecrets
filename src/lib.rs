@@ -1,3 +1,13 @@
+//! `devsecrets` is a set of tools to keep secrets (e.g. api keys, tokens, etc.) used during
+//! development in a safe location that is easy to access by the project being developed.
+//! This avoids the problem of accidentally comitting such secrets into a git repository,
+//! which can be a [pain to remove](https://help.github.com/en/github/authenticating-to-github/removing-sensitive-data-from-a-repository).
+//! 
+//! The tools consist of this crate, the `devsecrets` crate, and the command-line tool
+//! `cargo-devsecrets`. The former is used by the tool to access data stored in that project's set
+//! of devsecrets, while the latter initializes and helps put files into the set of devsecrets.
+//! 
+
 use serde::de::DeserializeOwned;
 use std::path::{Component, Path, PathBuf};
 
