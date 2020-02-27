@@ -49,7 +49,7 @@ mod macro_impls {
 
         quote! {
             #pub_fragment static #name: ::devsecrets::Id =
-                ::devsecrets::Id(::devsecrets::internal_core::DevsecretsId(
+                ::devsecrets::Id(::devsecrets::internal_core::DevSecretsId(
                     ::std::borrow::Cow::Borrowed(#uuid_str)));
         }
     }
