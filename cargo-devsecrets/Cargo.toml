@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-devsecrets-core = { path = "../devsecrets/devsecrets-core" }
+devsecrets-core = { path = "../devsecrets/devsecrets-core", version = "0.1.0-dev1" }
 clap = { version = "2.33.0", features = ["wrap_help"] }
 anyhow = "1.0.26"
 log = "0.4.8"

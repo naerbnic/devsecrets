@@ -9,10 +9,10 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.48"
-devsecrets-macros = { path = "devsecrets-macros" }
+devsecrets-macros = { path = "devsecrets-macros", version = "0.1.0-dev1" }
 dirs = "2.0.2"
 log = "0.4.8"
-devsecrets-core = { path = "devsecrets-core" }
+devsecrets-core = { path = "devsecrets-core", version = "0.1.0-dev1" }
 thiserror = "1.0.11"
 
 [workspace]
