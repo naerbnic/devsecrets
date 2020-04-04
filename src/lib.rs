@@ -3,6 +3,8 @@
 //!
 //! # Devsecret
 
+mod format;
+
 use std::path::{Component, Path, PathBuf};
 
 // Re-export the devsecrets_id macro to make it available to users.
@@ -33,6 +35,8 @@ pub use devsecrets_macros::devsecrets_id as import_id;
 
 #[doc(hidden)]
 pub use devsecrets_core as internal_core;
+
+pub use format::{Format, JsonFormat};
 
 /// An opaque devsecrets ID for a project.
 ///
@@ -248,59 +252,5 @@ where
             .format
             .deserialize::<T, std::fs::File>(self.secrets.make_reader_inner(self.path)?)
             .map_err(|e: F::Error| Error::ParseError(Box::new(e)))?)
-    }
-}
-
-/// A type of file format that can be deserialized using `serde`.
-pub trait Format {
-    /// The error type that deserialization can create. Is returned as the
-    /// cause of `Error::ParseError`.
-    type Error: std::error::Error + Sync + Send + Sized + 'static;
-
-    /// The file extension expected for the source file.
-    fn extension(&self) -> &str;
-
-    /// Deserializes the data in the given reader into a value of type T, or
-    /// returns a `Self::Error`.
-    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
-        &self,
-        reader: R,
-    ) -> std::result::Result<T, Self::Error>;
-}
-
-impl<F: Format> Format for &'_ F {
-    type Error = F::Error;
-
-    fn extension(&self) -> &str {
-        (*self).extension()
-    }
-
-    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
-        &self,
-        reader: R,
-    ) -> std::result::Result<T, Self::Error> {
-        (*self).deserialize::<T, R>(reader)
-    }
-}
-
-/// The JSON file format.
-///
-/// Used as input for `Source::with_format()` when the file format should be a
-/// JSON file.
-#[derive(Debug, Default)]
-pub struct JsonFormat;
-
-impl Format for JsonFormat {
-    type Error = serde_json::Error;
-
-    fn extension(&self) -> &str {
-        "json"
-    }
-
-    fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
-        &self,
-        reader: R,
-    ) -> std::result::Result<T, serde_json::Error> {
-        serde_json::from_reader(reader)
     }
 }
