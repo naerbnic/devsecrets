@@ -280,7 +280,7 @@ impl<F: Format> Format for &'_ F {
 }
 
 /// The JSON file format.
-/// 
+///
 /// Used as input for `Source::with_format()` when the file format should be a
 /// JSON file.
 #[derive(Debug, Default)]
