@@ -43,7 +43,7 @@ pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
 /// Errors that occur when attempting to access secret files within a `DevSecrets` instance.
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
-pub enum AccessError {
+pub enum Error {
     /// Indicates the relative path used to access the secret is invalid.
     ///
     /// Relative paths must be relative, and not include any up-references to the parent path.
@@ -71,11 +71,14 @@ pub enum AccessError {
     /// Indicates a parse error, when the accessor intends to parse the data.
     #[error("Could not parse file data: {0}")]
     ParseError(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
 }
 
-fn check_extension(p: &Path, ext: &str) -> Result<(), AccessError> {
+fn check_extension(p: &Path, ext: &str) -> Result<()> {
     if p.extension() != Some(std::ffi::OsStr::new(ext)) {
-        return Err(AccessError::InvalidExtension(format!(
+        return Err(Error::InvalidExtension(format!(
             "Path {:?} must have a .json extension.",
             p
         )));
@@ -83,6 +86,8 @@ fn check_extension(p: &Path, ext: &str) -> Result<(), AccessError> {
 
     Ok(())
 }
+
+type Result<T> = std::result::Result<T, Error>;
 
 /// Used to access the files inside of the devsecrets directory for your project.
 ///
@@ -104,7 +109,7 @@ impl DevSecrets {
     /// and ready to use.
     ///
     /// The `Id` value passed to this function can be obtained via `import_id!()`.
-    pub fn from_id(id: &Id) -> std::io::Result<Option<Self>> {
+    pub fn from_id(id: &Id) -> Result<Option<Self>> {
         let root = match devsecrets_core::DevSecretsRootDir::new()? {
             Some(root) => root,
             None => return Ok(None),
@@ -121,10 +126,10 @@ impl DevSecrets {
         self.dir.path()
     }
 
-    fn get_relative_path(&self, relpath: impl AsRef<Path>) -> Result<PathBuf, AccessError> {
+    fn get_relative_path(&self, relpath: impl AsRef<Path>) -> Result<PathBuf> {
         let relpath = relpath.as_ref();
         if relpath.is_absolute() {
-            return Err(AccessError::InvalidRelativePath(format!(
+            return Err(Error::InvalidRelativePath(format!(
                 "Path {:?} must not be absolute.",
                 relpath
             )));
@@ -135,7 +140,7 @@ impl DevSecrets {
             match component {
                 Component::Normal(_) => (),
                 _ => {
-                    return Err(AccessError::InvalidRelativePath(format!(
+                    return Err(Error::InvalidRelativePath(format!(
                         "Path {:?} has a non-normal component.",
                         relpath
                     )))
@@ -146,23 +151,22 @@ impl DevSecrets {
         Ok(self.root_dir().join(relpath))
     }
 
-    fn make_reader_inner(&self, path: impl AsRef<Path>) -> Result<std::fs::File, AccessError> {
+    fn make_reader_inner(&self, path: impl AsRef<Path>) -> Result<std::fs::File> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
-        Ok(std::fs::File::open(fullpath).map_err(AccessError::FileError)?)
+        Ok(std::fs::File::open(fullpath).map_err(Error::FileError)?)
     }
 
-    fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, AccessError> {
+    fn read(&self, path: impl AsRef<Path>) -> Result<Vec<u8>> {
         let path = path.as_ref();
         let fullpath = self.get_relative_path(path)?;
-        let contents = std::fs::read(fullpath).map_err(AccessError::FileError)?;
+        let contents = std::fs::read(fullpath).map_err(Error::FileError)?;
         Ok(contents)
     }
 
-    fn read_str(&self, path: impl AsRef<Path>) -> Result<String, AccessError> {
+    fn read_str(&self, path: impl AsRef<Path>) -> Result<String> {
         let contents = self.read(path)?;
-        let string =
-            String::from_utf8(contents).map_err(|e| AccessError::ParseError(Box::new(e)))?;
+        let string = String::from_utf8(contents).map_err(|e| Error::ParseError(Box::new(e)))?;
         Ok(string)
     }
 
@@ -207,18 +211,18 @@ impl<'a> Source<'a> {
     }
 
     /// Creates a reader to the given relative path in the devsecrets directory.
-    pub fn as_reader(&self) -> Result<impl std::io::Read, AccessError> {
+    pub fn as_reader(&self) -> Result<impl std::io::Read> {
         self.secrets.make_reader_inner(self.path)
     }
 
     /// Returns the contents of the given secrets file as a vector buffer.
-    pub fn to_bytes(&self) -> Result<Vec<u8>, AccessError> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
         self.secrets.read(self.path)
     }
 
     /// Returns the contents of the given secrets file as a string. A ParseError
     /// is returned if the file is not a valid utf8 encoded text file.
-    pub fn to_string(&self) -> Result<String, AccessError> {
+    pub fn to_string(&self) -> Result<String> {
         self.secrets.read_str(self.path)
     }
 }
@@ -238,19 +242,19 @@ where
     F: Format,
 {
     /// Deserializes the indicated file using the indicated format of type `T`.
-    pub fn into_value<T: serde::de::DeserializeOwned>(&self) -> Result<T, AccessError> {
+    pub fn into_value<T: serde::de::DeserializeOwned>(&self) -> Result<T> {
         check_extension(self.path, self.format.extension().as_ref())?;
         Ok(self
             .format
             .deserialize::<T, std::fs::File>(self.secrets.make_reader_inner(self.path)?)
-            .map_err(|e: F::Error| AccessError::ParseError(Box::new(e)))?)
+            .map_err(|e: F::Error| Error::ParseError(Box::new(e)))?)
     }
 }
 
 /// A type of file format that can be deserialized using `serde`.
 pub trait Format {
     /// The error type that deserialization can create. Is returned as the
-    /// cause of `AccessError::ParseError`.
+    /// cause of `Error::ParseError`.
     type Error: std::error::Error + Sync + Send + Sized + 'static;
 
     /// The file extension expected for the source file.
@@ -261,7 +265,7 @@ pub trait Format {
     fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
         &self,
         reader: R,
-    ) -> Result<T, Self::Error>;
+    ) -> std::result::Result<T, Self::Error>;
 }
 
 impl<F: Format> Format for &'_ F {
@@ -274,7 +278,7 @@ impl<F: Format> Format for &'_ F {
     fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
         &self,
         reader: R,
-    ) -> Result<T, Self::Error> {
+    ) -> std::result::Result<T, Self::Error> {
         (*self).deserialize::<T, R>(reader)
     }
 }
@@ -296,7 +300,7 @@ impl Format for JsonFormat {
     fn deserialize<T: serde::de::DeserializeOwned, R: std::io::Read>(
         &self,
         reader: R,
-    ) -> Result<T, serde_json::Error> {
+    ) -> std::result::Result<T, serde_json::Error> {
         serde_json::from_reader(reader)
     }
 }
