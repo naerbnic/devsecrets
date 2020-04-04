@@ -5,6 +5,9 @@
 
 mod format;
 
+use serde::de::DeserializeOwned;
+use std::error::Error as StdError;
+use std::io;
 use std::path::{Component, Path, PathBuf};
 
 // Re-export the devsecrets_id macro to make it available to users.
@@ -48,6 +51,10 @@ pub struct Id(#[doc(hidden)] pub internal_core::DevSecretsId);
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Indicates this package's devsecrets directory has not been initialized.
+    #[error("Devsecrets directory was not initialized")]
+    DirectoryNotInitialized,
+
     /// Indicates the relative path used to access the secret is invalid.
     ///
     /// Relative paths must be relative, and not include any up-references to the parent path.
@@ -74,10 +81,10 @@ pub enum Error {
 
     /// Indicates a parse error, when the accessor intends to parse the data.
     #[error("Could not parse file data: {0}")]
-    ParseError(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
+    ParseError(#[source] Box<dyn StdError + Send + Sync + 'static>),
 
     #[error(transparent)]
-    IoError(#[from] std::io::Error),
+    IoError(#[from] io::Error),
 }
 
 fn check_extension(p: &Path, ext: &str) -> Result<()> {
@@ -113,17 +120,14 @@ impl DevSecrets {
     /// and ready to use.
     ///
     /// The `Id` value passed to this function can be obtained via `import_id!()`.
-    pub fn from_id(id: &Id) -> Result<Option<Self>> {
-        let root = match devsecrets_core::DevSecretsRootDir::new()? {
-            Some(root) => root,
-            None => return Ok(None),
-        };
-        let child = match root.get_child(&id.0)? {
-            Some(child) => child,
-            None => return Ok(None),
-        };
+    pub fn from_id(id: &Id) -> Result<Self> {
+        let root =
+            devsecrets_core::DevSecretsRootDir::new()?.ok_or(Error::DirectoryNotInitialized)?;
+        let child = root
+            .get_child(&id.0)?
+            .ok_or(Error::DirectoryNotInitialized)?;
 
-        Ok(Some(DevSecrets { dir: child }))
+        Ok(DevSecrets { dir: child })
     }
 
     fn root_dir(&self) -> &Path {
@@ -215,7 +219,7 @@ impl<'a> Source<'a> {
     }
 
     /// Creates a reader to the given relative path in the devsecrets directory.
-    pub fn as_reader(&self) -> Result<impl std::io::Read> {
+    pub fn to_reader(&self) -> Result<impl std::io::Read> {
         self.secrets.make_reader_inner(self.path)
     }
 
@@ -246,7 +250,7 @@ where
     F: Format,
 {
     /// Deserializes the indicated file using the indicated format of type `T`.
-    pub fn into_value<T: serde::de::DeserializeOwned>(&self) -> Result<T> {
+    pub fn into_value<T: DeserializeOwned>(&self) -> Result<T> {
         check_extension(self.path, self.format.extension().as_ref())?;
         Ok(self
             .format
