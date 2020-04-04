@@ -15,5 +15,9 @@ log = "0.4.8"
 devsecrets-core = { path = "devsecrets-core", version = "0.1.0-dev1" }
 thiserror = "1.0.11"
 
+[dev-dependencies.cargo-husky]
+version = "1"
+features = ["precommit-hook", "run-cargo-fmt"]
+
 [workspace]
 members = ["cargo-devsecrets", "devsecrets-macros", "devsecrets-core"]
