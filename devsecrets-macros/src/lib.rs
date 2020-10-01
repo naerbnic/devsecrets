@@ -5,23 +5,12 @@ mod macro_impls {
     use proc_macro2::{Span, TokenStream};
     use quote::quote;
     use std::path::PathBuf;
-    use syn::{Ident, Token};
 
-    struct DevsecretsIdDecl {
-        is_pub: bool,
-        name: Ident,
-    }
+    struct DevsecretsIdDecl;
 
     impl syn::parse::Parse for DevsecretsIdDecl {
-        fn parse(parser: syn::parse::ParseStream) -> syn::parse::Result<Self> {
-            let first_tok = parser.lookahead1();
-            let is_pub = first_tok.peek(Token![pub]);
-            if is_pub {
-                parser.parse::<Token![pub]>()?;
-            }
-            let name = parser.parse::<Ident>()?;
-
-            Ok(DevsecretsIdDecl { is_pub, name })
+        fn parse(_: syn::parse::ParseStream) -> syn::parse::Result<Self> {
+            Ok(DevsecretsIdDecl)
         }
     }
 
@@ -33,22 +22,14 @@ mod macro_impls {
             .expect("Problem reading uuid file.")
             .expect("Uuid file does not exist");
 
-        let id_decl = match syn::parse2::<DevsecretsIdDecl>(input) {
+        let _ = match syn::parse2::<DevsecretsIdDecl>(input) {
             Ok(decl) => decl,
             Err(e) => return e.to_compile_error(),
         };
 
-        let pub_fragment = if id_decl.is_pub {
-            quote!(pub)
-        } else {
-            quote!()
-        };
-
-        let name = &id_decl.name;
         let uuid_str = syn::LitStr::new(id.id_str(), Span::call_site());
 
         quote! {
-            #pub_fragment static #name: ::devsecrets::Id =
                 ::devsecrets::Id(::devsecrets::internal_core::DevSecretsId(
                     ::std::borrow::Cow::Borrowed(#uuid_str)));
         }

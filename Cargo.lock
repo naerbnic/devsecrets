@@ -149,7 +149,7 @@ dependencies = [
 
 [[package]]
 name = "devsecrets"
-version = "0.1.0-dev1"
+version = "0.1.0-dev2"
 dependencies = [
  "cargo-husky",
  "devsecrets-core",
