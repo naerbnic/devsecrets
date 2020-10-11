@@ -9,34 +9,47 @@ mod macro_impls {
     struct DevsecretsIdDecl;
 
     impl syn::parse::Parse for DevsecretsIdDecl {
-        fn parse(_: syn::parse::ParseStream) -> syn::parse::Result<Self> {
-            Ok(DevsecretsIdDecl)
+        fn parse(stream: syn::parse::ParseStream) -> syn::parse::Result<Self> {
+            if !stream.is_empty() {
+                Err(stream.error("devsecrets_id!() must have no arguments"))
+            } else {
+                Ok(DevsecretsIdDecl)
+            }
         }
     }
 
-    pub fn devsecrets_id_impl(input: TokenStream) -> TokenStream {
+    pub fn devsecrets_id_impl(input: TokenStream) -> syn::Result<TokenStream> {
+        let _ = syn::parse2::<DevsecretsIdDecl>(input)?;
+
         let manifest_dir: PathBuf = std::env::var_os("CARGO_MANIFEST_DIR")
-            .expect("CARGO_MANIFEST_DIR should exist during compilation.")
+            .ok_or_else(|| {
+                syn::Error::new(
+                    Span::call_site(),
+                    "CARGO_MANIFEST_DIR should exist during compilation.",
+                )
+            })?
             .into();
         let id = devsecrets_core::read_devsecrets_id(manifest_dir)
-            .expect("Problem reading uuid file.")
-            .expect("Uuid file does not exist");
-
-        let _ = match syn::parse2::<DevsecretsIdDecl>(input) {
-            Ok(decl) => decl,
-            Err(e) => return e.to_compile_error(),
-        };
+            .map_err(|e| {
+                syn::Error::new(
+                    Span::call_site(),
+                    format!("Problem reading uuid file: {}", e),
+                )
+            })?
+            .ok_or_else(|| syn::Error::new(Span::call_site(), "Uuid file does not exist"))?;
 
         let uuid_str = syn::LitStr::new(id.id_str(), Span::call_site());
 
-        quote! {
+        Ok(quote! {
                 ::devsecrets::Id(::devsecrets::internal_core::DevSecretsId(
                     ::std::borrow::Cow::Borrowed(#uuid_str)));
-        }
+        })
     }
 }
 
 #[proc_macro]
 pub fn devsecrets_id(t: TokenStream) -> TokenStream {
-    macro_impls::devsecrets_id_impl(t.into()).into()
+    macro_impls::devsecrets_id_impl(t.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
 }
