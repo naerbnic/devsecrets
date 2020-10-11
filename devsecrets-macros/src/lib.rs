@@ -42,7 +42,7 @@ mod macro_impls {
 
         Ok(quote! {
                 ::devsecrets::Id(::devsecrets::internal_core::DevSecretsId(
-                    ::std::borrow::Cow::Borrowed(#uuid_str)));
+                    ::std::borrow::Cow::Borrowed(#uuid_str)))
         })
     }
 }
